@@ -24,13 +24,14 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from skimage import io
-
+import cv2 as cv
 import glob
 import time
 import argparse
 from filterpy.kalman import KalmanFilter
 
 np.random.seed(0)
+# def box_to_video(det,trackers):
 
 
 def linear_assignment(cost_matrix):
@@ -287,13 +288,18 @@ if __name__ == '__main__':
   if not os.path.exists('output'):
     os.makedirs('output')
   pattern = os.path.join(args.seq_path, phase, '*', 'det', 'det.txt')
-  for seq_dets_fn in glob.glob(pattern):
+  for j,seq_dets_fn in enumerate(glob.glob(pattern)):
     mot_tracker = Sort(max_age=args.max_age, 
                        min_hits=args.min_hits,
                        iou_threshold=args.iou_threshold) #create instance of the SORT tracker
     seq_dets = np.loadtxt(seq_dets_fn, delimiter=',')
     seq = seq_dets_fn[pattern.find('*'):].split(os.path.sep)[0]
     
+    fourcc = cv.VideoWriter_fourcc(*"MJPG")
+    video_file=f'output/video{j}.avi'
+    size=5000
+    videowriter=cv.VideoWriter(video_file,fourcc,25,(size,size))
+
     with open(os.path.join('output', '%s.txt'%(seq)),'w') as out_file:
       print("Processing %s."%(seq))
       for frame in range(int(seq_dets[:,0].max())):
@@ -318,12 +324,17 @@ if __name__ == '__main__':
           if(display):
             d = d.astype(np.int32)
             ax1.add_patch(patches.Rectangle((d[0],d[1]),d[2]-d[0],d[3]-d[1],fill=False,lw=3,ec=colours[d[4]%32,:]))
-
+        img=np.ones((size,size,3),np.uint8)*255
+        for i,d in enumerate(dets):
+          cv.rectangle(img,(int(d[0]),int(d[1])),(int(d[2]),int(d[3])),(15*i,15*i,15*i),2)
+        for i,d in enumerate(trackers):
+          cv.rectangle(img,(int(d[0]),int(d[1])),(int(d[2]),int(d[3])),(15*i,15*i,15*i),5)
+        videowriter.write(img)
         if(display):
           fig.canvas.flush_events()
           plt.draw()
           ax1.cla()
-
+      videowriter.release()
   print("Total Tracking took: %.3f seconds for %d frames or %.1f FPS" % (total_time, total_frames, total_frames / total_time))
 
   if(display):
